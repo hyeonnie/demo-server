@@ -1,0 +1,51 @@
+node {
+    jdk = tool name: 'jdk 21'
+    env.JAVA_HOME = "${jdk}"
+    env.IMAGE_NAME = "shyeonnie/demo-api"
+    env.MANIFEST_REPO = "https://github.com/hyeonnie/demo-deploy.git"
+
+    echo "jdk installation path is: ${jdk}"
+
+    stage('checkout') {
+        checkout scm
+    }
+
+    stage('build gradle') {
+        sh "chmod +x ./gradlew"
+        sh "./gradlew clean demo-api:build"
+    }
+
+    stage('build image') {
+        dir('demo-api') {
+            app = docker.build(env.IMAGE_NAME)
+        }
+    }
+
+    stage('push image') {
+        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
+            app.push("${env.BUILD_NUMBER}")
+            app.push("latest")
+        }
+    }
+
+    stage('update manifest'){
+        script {
+            git branch: 'main', changelog: false, credentialsId: 'github', poll: false, url: env.MANIFEST_REPO
+
+            // deployment-patches.yaml 파일에서 이미지 태그를 최신 빌드 태그로 변경
+            sh "sed -i 's|${env.IMAGE_NAME}:.*|${env.IMAGE_NAME}:${env.BUILD_NUMBER}|g' overlays/api/deployment-patch.yaml"
+
+            // kustomize.yaml에서 이미지 태그를 동적으로 업데이트
+            sh "sed -i 's|newTag: .*|newTag: \"'${env.BUILD_NUMBER}'\"|g' overlays/api/kustomization.yaml"
+
+            //
+            sh 'git add overlays/api/.'
+            sh "git -c user.name='ghjoo' -c user.email='shyeonnie@gmail.com' commit -m 'update image tag to ${env.BUILD_NUMBER}'"
+
+            withCredentials([gitUsernamePassword(credentialsId: 'github', gitToolName: 'git-tool')]) {
+                sh "git remote set-url origin ${env.MANIFEST_REPO}"
+                sh "git push -u origin main"
+            }
+        }
+    }
+}

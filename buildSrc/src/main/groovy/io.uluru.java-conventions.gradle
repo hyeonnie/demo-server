@@ -1,0 +1,32 @@
+plugins {
+    id 'java-library'
+}
+
+repositories {
+    mavenLocal()
+    maven {
+        url = uri('https://repo.maven.apache.org/maven2/')
+    }
+}
+
+group = 'io.uluru'
+version = '0.0.1-SNAPSHOT'
+
+compileJava.options.compilerArgs = ['-parameters', '-Amapstruct.unmappedTargetPolicy=IGNORE']
+compileJava.options.encoding = 'UTF-8'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+}

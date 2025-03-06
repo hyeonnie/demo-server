@@ -1,0 +1,9 @@
+plugins {
+	id 'io.uluru.java-conventions'
+}
+
+dependencies {
+
+}
+
+description = 'demo-common'
